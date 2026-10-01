@@ -6,7 +6,7 @@ sampling, MELO and HITKIT banks, sound shaping, stereo effects, and tape looping
 [Download Nibbi and read the illustrated guide](https://temeculadsp.com/nibbi).
 
 This repository contains the instrument source, factory samples, faceplate
-artwork, reference material, and test sources. Build projects, dependency setup,
+artwork, and test sources with reference fixtures. Build projects, dependency setup,
 signing configuration, packaging tools, and release scripts are not included.
 The website and other Temecula DSP products are not part of this repository.
 
