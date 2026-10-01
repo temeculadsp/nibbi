@@ -173,6 +173,38 @@ void checkDawRecordingState() {
  }
  require(audioAllocations==0,"DAW capture and recall add no audio-thread allocations");
 }
+// AAX exposes its optional input as a mono sidechain. It must behave like
+// identical left/right audio on the existing stereo auxiliary input.
+void checkMonoAuxInput() {
+ auto render=[](bool mono) {
+  auto p=std::make_unique<NibbiProcessor>();
+  auto layout=p->getBusesLayout();
+  layout.inputBuses.set(1,mono?juce::AudioChannelSet::mono():juce::AudioChannelSet::stereo());
+  layout.outputBuses.set(1,juce::AudioChannelSet::stereo());
+  require(p->setBusesLayout(layout),"Mono and stereo auxiliary layouts are accepted");
+  p->prepareToPlay(48000,96);
+  std::vector<float> result;
+  for(int block=0;block<20;++block) {
+   juce::AudioBuffer<float> audio(4,96);audio.clear();juce::MidiBuffer midi;
+   auto main=p->getBusBuffer(audio,true,0);
+   auto aux=p->getBusBuffer(audio,true,1);
+   for(int i=0;i<96;++i) {
+    main.setSample(0,i,-.02f);main.setSample(1,i,.03f);
+    const float sample=.1f*std::sin(float(block*96+i)*.05f);
+    for(int ch=0;ch<aux.getNumChannels();++ch)aux.setSample(ch,i,sample);
+   }
+   p->processBlock(audio,midi);
+   auto headphones=p->getBusBuffer(audio,false,1);
+   for(int i=0;i<96;++i)for(int ch=0;ch<2;++ch)result.push_back(headphones.getSample(ch,i));
+  }
+  return result;
+ };
+ const auto mono=render(true),stereo=render(false);
+ require(mono==stereo,"Mono sidechain reaches both native line-input channels");
+ float energy=0.f;for(float sample:mono)energy+=sample*sample;
+ require(energy>.001f,"Sidechain comparison contains audible monitored input");
+}
+
 int main() { try {
  juce::ScopedJuceInitialiser_GUI gui;
  if(nibbi::factoryBankError().isNotEmpty()) throw std::runtime_error(nibbi::factoryBankError().toStdString());
@@ -180,6 +212,7 @@ int main() { try {
  checkNativeMenus();
  checkSampleImport();
  checkDawRecordingState();
+ checkMonoAuxInput();
  auto p=std::make_unique<NibbiProcessor>();
  require(p->parameters.getRawParameterValue("output")->load()==.5f,"Startup volume leaves 6 dB of adjustment above the normal listening level");
  p->parameters.getParameter("output")->setValueNotifyingHost(1.f);

@@ -121,7 +121,7 @@ bool NibbiProcessor::isBusesLayoutSupported(const BusesLayout& l) const {
  auto in=l.getMainInputChannelSet(),out=l.getMainOutputChannelSet();
  auto aux=l.getChannelSet(true,1);
  auto headphones=l.getChannelSet(false,1);
- return out==juce::AudioChannelSet::stereo() && (aux.isDisabled() || aux==juce::AudioChannelSet::stereo()) && (headphones.isDisabled() || headphones==juce::AudioChannelSet::stereo()) && (in.isDisabled() || in==juce::AudioChannelSet::mono() || in==juce::AudioChannelSet::stereo());
+ return out==juce::AudioChannelSet::stereo() && (aux.isDisabled() || aux==juce::AudioChannelSet::mono() || aux==juce::AudioChannelSet::stereo()) && (headphones.isDisabled() || headphones==juce::AudioChannelSet::stereo()) && (in.isDisabled() || in==juce::AudioChannelSet::mono() || in==juce::AudioChannelSet::stereo());
 }
 nibbi::Controls NibbiProcessor::controls() const {
  nibbi::Controls c; auto v=[&](size_t i) { return values_[i]->load(std::memory_order_relaxed); };
@@ -211,7 +211,8 @@ void NibbiProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::MidiBuf
    input.r=inputBus.getSample(inputBus.getNumChannels()>1?1:0,i);
   }
   input.auxL=auxBus.getNumChannels()>0?auxBus.getSample(0,i):input.l;
-  input.auxR=auxBus.getNumChannels()>1?auxBus.getSample(1,i):input.r;
+  // AAX supplies a mono sidechain; feed it to both native line-input channels.
+  input.auxR=auxBus.getNumChannels()>0?auxBus.getSample(auxBus.getNumChannels()>1?1:0,i):input.r;
   auto f=host_->process(input,catalog);
   nibbi::Controls updated;
   if(host_->takeControlState(updated)) syncControlState(updated);
