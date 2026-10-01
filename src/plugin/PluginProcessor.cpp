@@ -300,7 +300,7 @@ juce::String NibbiProcessor::loadSample(const juce::File& file, int targetSlot) 
  if(selectImported) targetSlot=14; // A drop arms the shared temporary sample, like recording.
  if(targetSlot<0 || targetSlot>=int(nibbi::kCatalogSize)) return "Invalid sample slot.";
  std::unique_ptr<juce::AudioFormatReader> reader(formats_.createReaderFor(file));
- if(!reader || reader->lengthInSamples<2 || reader->sampleRate<8000 || reader->sampleRate>384000) return "Choose a valid audio file.";
+ if(!reader || reader->lengthInSamples<2 || !std::isfinite(reader->sampleRate) || reader->sampleRate<8000 || reader->sampleRate>384000) return "Choose a valid audio file.";
  if(reader->lengthInSamples>int64_t(reader->sampleRate*180)) return "Samples can be up to three minutes long.";
  const bool buffer=targetSlot==14;
  const double outputRate=buffer?48000.:reader->sampleRate;
@@ -519,7 +519,7 @@ void NibbiProcessor::getStateInformation(juce::MemoryBlock& out) {
  }
 }
 void NibbiProcessor::setStateInformation(const void* data,int size) {
- if(size<4 || size>512*1024*1024) return;
+ if(data==nullptr || size<4 || size>512*1024*1024) return;
  juce::MemoryInputStream stream(data,size_t(size),false);
  const int version=stream.readInt();
  if(version!=0x43485032 && version!=0x43485033 && version!=0x43485034 && version!=0x43485035) return;

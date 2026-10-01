@@ -15,8 +15,11 @@ public:
   reduction_.fill(1.f);
  }
  void processStereo(float& left,float& right,size_t bus) {
-  left=std::isfinite(left)?left*gain:0.f;
-  right=std::isfinite(right)?right*gain:0.f;
+  // Check after gain as even a finite input can overflow during multiplication.
+  left*=gain;
+  right*=gain;
+  left=std::isfinite(left)?left:0.f;
+  right=std::isfinite(right)?right:0.f;
   const float peak=std::max(std::abs(left),std::abs(right));
   const float needed=peak>ceiling?ceiling/peak:1.f;
   // Immediate attack catches transients; a 50 ms release avoids sample-by-sample

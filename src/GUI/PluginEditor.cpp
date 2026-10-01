@@ -218,7 +218,11 @@ void NibbiEditor::timerCallback() {
  if(pagesChanged)bindDials();
  panel_.recordButton().setToggleState(proc_.sampleRecording.load(),juce::dontSendNotification);
  panel_.recordButton().setEnabled(true);
- panel_.recordButton().setTooltip(value("modeSwitch")>.5f?"Hold for Shift; press again to confirm a pending preset":"Hold to sample the selected input; release to finish");
+ panel_.recordButton().setTooltip(value("modeSwitch")>.5f
+  ? "Hold for Shift; press again to confirm a pending preset"
+  : value("recordLatch")>.5f
+   ? "Click to sample the selected input; click again to finish"
+   : "Hold to sample the selected input; release to finish");
  panel_.setSampleModeLight(value("recordLatch")>.5f);
  if(status_=="Finishing sample..." && !proc_.sampleRecording.load()) status_="Sample recorded.";
  panel_.playButton().setToggleState(proc_.loopPlaying.load(),juce::dontSendNotification);

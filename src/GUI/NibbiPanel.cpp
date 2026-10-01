@@ -7,7 +7,7 @@ namespace nibbi::gui
 {
 namespace
 {
-// doc/ui.jpeg: the enclosure spans x=86..1264; the key bed starts about
+// In the faceplate reference, the enclosure spans x=86..1264; the key bed starts about
 // 42 pixels inside either edge. Fit the complete control layout to that width,
 // keeping square keycaps and circular knobs. The title bar is separate.
 constexpr float faceplateScale=1200.f/1178.f;
@@ -66,7 +66,7 @@ void ModeSwitch::paintButton(juce::Graphics& g,bool over,bool down) {
     g.drawRoundedRectangle(grip.reduced(.5f),2.f,.8f);
     // Molded horizontal ribs give the plastic slider its coarse thumb grip.
     for(int rib=0;rib<4;++rib) {
-        const float y=grip.getY()+3+rib*3;
+        const float y=grip.getY()+3.f+float(rib)*3.f;
         g.setColour(juce::Colour(0xff090c0a));
         g.drawLine(grip.getX()+3,y+1,grip.getRight()-3,y+1,1.f);
         g.setColour(juce::Colour(0xff555c56));

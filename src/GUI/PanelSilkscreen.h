@@ -1,7 +1,7 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// Smooth centreline artwork measured against doc/ui.jpeg. Circular arcs and
+// Smooth centreline artwork measured against the faceplate reference. Circular arcs and
 // Bezier curves retain the printed design without tracing JPEG pixel edges.
 namespace nibbi::gui::silkscreen {
 inline void stroke(juce::Path& ink,const juce::Path& centreline,float width=3.5f) {
@@ -101,7 +101,7 @@ inline const juce::Path& transportLamps() {
   for(float x:{965.5f,1040.f}) {
    juce::Path ring;ring.addEllipse(x-20,384,40,40);stroke(ink,ring,3.2f);
    for(int i=0;i<4;++i) {
-    const float a=i*juce::MathConstants<float>::halfPi;
+    const float a=float(i)*juce::MathConstants<float>::halfPi;
     const juce::Point<float> centre(x,404);
     juce::Path mark;mark.startNewSubPath(centre.getPointOnCircumference(15.5f,a));
     mark.lineTo(centre.getPointOnCircumference(20,a));stroke(ink,mark,2.6f);

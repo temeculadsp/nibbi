@@ -1,4 +1,4 @@
-// Built by compare_upstream.py against unmodified reference source.
+// Comparison harness for the unmodified upstream reference source.
 #include "reference.h"
 #include <iostream>
 #include <stdexcept>

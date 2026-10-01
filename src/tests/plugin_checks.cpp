@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <new>
+#include <limits>
 thread_local bool watchAudio = false;
 std::atomic<int> audioAllocations{0};
 void* operator new(size_t n) { if(watchAudio) ++audioAllocations; if(void* p=std::malloc(n?n:1)) return p; throw std::bad_alloc(); }
@@ -58,7 +59,7 @@ void checkNativeMenus() {
  process();
  const auto source=p->sampleName();
  shift(true);button(30);button(15);button(8);button(5);shift(false);process();
- require(!p->sampleRecording,"Pink confirms the Shift copy without starting a recording");
+ require(!p->sampleRecording,"The sample button confirms the Shift copy without starting a recording");
  juce::MemoryBlock saved;p->getStateInformation(saved);process(105);
  require(p->parameters.getRawParameterValue("slot")->load()==1.f && p->sampleName()==source,"Original menu copy selects the copied destination after completion");
  const float volume=p->parameters.getRawParameterValue("output")->load();
@@ -264,6 +265,13 @@ int main() { try {
   require(std::abs(hpL)<=nibbi::OutputStage::ceiling+1.e-6f && std::abs(hpR)<=nibbi::OutputStage::ceiling,"Headphone output is also protected");
   stage.prepare(rate); left=.01f;right=0;stage.processStereo(left,right,0);
   require(std::abs(left-.01f*nibbi::OutputStage::gain)<1.e-7f,"Reset clears limiter gain reduction");
+  for(float invalid:{std::numeric_limits<float>::max(),-std::numeric_limits<float>::max(),
+                     std::numeric_limits<float>::infinity(),std::numeric_limits<float>::quiet_NaN()}) {
+   stage.prepare(rate);left=invalid;right=.01f;stage.processStereo(left,right,0);
+   require(left==0.f && std::abs(right-.01f*nibbi::OutputStage::gain)<1.e-7f,"Invalid or overflowing audio cannot poison the stereo limiter");
+   left=.01f;right=.005f;stage.processStereo(left,right,0);
+   require(std::isfinite(left) && std::isfinite(right) && left>0.f && right>0.f,"Normal audio recovers immediately after invalid input");
+  }
  }
  p->parameters.getParameter("drive")->setValueNotifyingHost(.7f);
  juce::MemoryBlock state;p->getStateInformation(state);
@@ -294,6 +302,25 @@ int main() { try {
   require(migrated==state,"Pre-rename projects migrate with identical samples and parameters");
  }
  q->setStateInformation(state.getData(),int(state.getSize()-5)); juce::MemoryBlock after;q->getStateInformation(after);require(after==roundtrip,"Truncated session rejected transactionally");
+ // Invalid host state must leave the existing session untouched.
+ auto requireRejectedState=[&](const void* data,int size,const char* message) {
+  q->setStateInformation(data,size);
+  juce::MemoryBlock unchanged;q->getStateInformation(unchanged);
+  require(unchanged==roundtrip,message);
+ };
+ requireRejectedState(nullptr,0,"Empty host state is ignored");
+ requireRejectedState(nullptr,int(state.getSize()),"Null host state is ignored even with a nonzero size");
+ requireRejectedState(state.getData(),3,"An incomplete state header is ignored");
+ {
+  juce::MemoryInputStream input(state,false);juce::MemoryBlock invalid;
+  juce::MemoryOutputStream output(invalid,false);output.writeInt(input.readInt());
+  auto xml=juce::parseXML(input.readString());
+  auto invalidParameters=juce::ValueTree::fromXml(*xml);
+  invalidParameters.getChildWithProperty("id","output").setProperty("value",1000.f,nullptr);
+  output.writeString(invalidParameters.createXml()->toString());
+  output.writeFromInputStream(input,-1);
+  requireRejectedState(invalid.getData(),int(invalid.getSize()),"Out-of-range parameters are rejected transactionally");
+ }
  q->prepareToPlay(44100,32);require(q->getLatencySamples()==84,"44.1 kHz converter latency");
  juce::TemporaryFile appearanceFile(".settings");
  std::unique_ptr<juce::AudioProcessorEditor> editor(new NibbiEditor(*q,appearanceFile.getFile()));require(editor && editor->getWidth()==1200,"Instrument editor creates");
@@ -304,7 +331,7 @@ int main() { try {
   require(prompt && prompt->isVisible(),"Factory reset asks for confirmation");
   if(!confirm) {
    auto preview=target.createComponentSnapshot(target.getLocalBounds());
-   auto file=juce::File("/tmp/nibbi-reset-confirmation.png").createOutputStream();
+   auto file=juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("nibbi-reset-confirmation.png").createOutputStream();
    if(file) {file->setPosition(0);file->truncate();juce::PNGImageFormat().writeImageToStream(preview,*file);}
   }
   auto* choice=dynamic_cast<juce::TextButton*>(prompt->findChildWithID(confirm?"confirmReset":"cancelReset"));
@@ -324,7 +351,7 @@ int main() { try {
   backgrounds->onClick();require(connected->panel().getBackground()==i%nibbi::gui::NibbiPanel::backgroundCount,"Background button cycles black, pink and all three faceplates");
   if(i<5) {
    auto preview=editor->createComponentSnapshot(editor->getLocalBounds());
-   auto file=juce::File(i==1?"/tmp/nibbi-pink-preview.png":"/tmp/nibbi-faceplate-"+juce::String(i-1)+"-preview.png").createOutputStream();
+   auto file=juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile(i==1?"nibbi-pink-preview.png":"nibbi-faceplate-"+juce::String(i-1)+"-preview.png").createOutputStream();
    if(file) {file->setPosition(0);file->truncate();juce::PNGImageFormat().writeImageToStream(preview,*file);}
   }
  }
@@ -347,7 +374,7 @@ int main() { try {
  require(chromatic && drums,"Raised mode keys remain clickable");
  connected->modifierKeysChanged(juce::ModifierKeys(juce::ModifierKeys::shiftModifier));
  drums->setState(juce::Button::buttonDown); drums->setState(juce::Button::buttonNormal);flushControls();
- require(q->parameters.getRawParameterValue("multi")->load()==1.f,"Shift plus second black key selects one-shot/drum mode");
+ require(q->parameters.getRawParameterValue("multi")->load()==1.f,"Shift plus the second raised key selects HITKIT");
  require(q->parameters.getRawParameterValue("multi")->load()==1.f,"Selected engine survives mouse release");
 
  drums->setState(juce::Button::buttonDown); drums->setState(juce::Button::buttonNormal);flushControls();
@@ -356,7 +383,7 @@ int main() { try {
  require(q->parameters.getRawParameterValue("multi")->load()==1.f,"Engine selection survives releasing Shift");
  {
   auto preview=editor->createComponentSnapshot(editor->getLocalBounds());
-  auto file=juce::File("/tmp/nibbi-drums-preview.png").createOutputStream();
+  auto file=juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("nibbi-drums-preview.png").createOutputStream();
   if(file) { file->setPosition(0);file->truncate();juce::PNGImageFormat().writeImageToStream(preview,*file); }
  }
  connected->modifierKeysChanged(juce::ModifierKeys(juce::ModifierKeys::shiftModifier));
@@ -416,7 +443,7 @@ int main() { try {
   require(readout && readout->isVisible() && readout->getText()==encoder.readoutText(),"Relative turns show the current audio control value");
  }
  auto image=editor->createComponentSnapshot(editor->getLocalBounds());require(image.isValid(),"Editor paints");
- auto output=juce::File("/tmp/nibbi-preview.png").createOutputStream();
+ auto output=juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("nibbi-preview.png").createOutputStream();
  if(output) { output->setPosition(0); output->truncate(); juce::PNGImageFormat().writeImageToStream(image,*output); }
  // Load/restore complete catalogs while audio is running. Reclamation and
  // session serialization stay on this thread; callbacks may neither allocate
