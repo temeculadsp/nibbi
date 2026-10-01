@@ -1,0 +1,45 @@
+# Build and release setup stays private.
+CMakeLists.txt
+*.cmake
+build.conf
+Makefile
+CMakePresets.json
+CMakeUserPresets.json
+/build*/
+/cmake-build*/
+/.github/
+/vendor/
+*.sh
+*.ps1
+*.bat
+*.cmd
+*.entitlements
+AGENTS.md
+
+# Local and generated files
+CMakeCache.txt
+CMakeFiles/
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.dylib
+*.exe
+*.app/
+*.component/
+*.vst3/
+*.dSYM/
+__pycache__/
+*.py[cod]
+.DS_Store
+.vscode/
+.idea/
+
+# Credentials and signing material
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
